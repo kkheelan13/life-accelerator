@@ -67,7 +67,9 @@ const TaskBead: React.FC<TaskBeadProps> = ({ id, color, title, index }) => {
 };
 
 export const FocusCone = () => {
-  const tasks = useStore((state) => state.tasks);
+  const tasks = useStore((state) => 
+    state.tasks.filter((t) => t.category === state.activeCategory)
+  );
 
   return (
     <group position={[0, -2, 0]}>
