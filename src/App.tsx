@@ -29,6 +29,7 @@ const BrainDumpInput = ({ categoryTasks }: { categoryTasks: any[] }) => {
   const activeColor = categoryTasks.find(t => t.id === selectedTaskId)?.color || '#fff';
 
   return (
+    
     <div style={{
       position: 'absolute', bottom: '30px', left: '50%', transform: 'translateX(-50%)',
       width: '90%', maxWidth: '600px', pointerEvents: 'auto', zIndex: 100,
@@ -93,13 +94,14 @@ const UI = () => {
         position: 'absolute', top: 0, left: 0, width: '100%', padding: '30px',
         pointerEvents: 'none', zIndex: 50, display: 'flex', justifyContent: 'space-between', boxSizing: 'border-box'
       }}>
+
         <div style={{ color: 'white', fontFamily: '"Geist", monospace' }}>
-          <h1 style={{ margin: 0, letterSpacing: '-1px' }}>
+          <h1 style={{ margin: 0, letterSpacing: '-1px', display: 'flex', alignItems: 'baseline', gap: '10px' }}>
             {view === 'world' ? 'ORBITAL COMMAND' : activeCategory?.toUpperCase()}
+            <span style={{ fontSize: '0.8rem', color: '#666', fontWeight: 'normal' }}>v0.1.0-alpha</span>
           </h1>
           <div style={{ color: '#00a1e0', fontWeight: 'bold' }}>XP: {xp}</div>
         </div>
-        
         {view === 'focus' && (
           <button onClick={exitPillar} style={{
             pointerEvents: 'auto', padding: '12px 24px', background: 'white', 
