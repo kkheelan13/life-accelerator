@@ -23,8 +23,8 @@ const BrainDumpInput = ({ activeCategory }: { activeCategory: Category }) => {
     const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
     
     if (lines.length > 0) {
-      // NEW PARAMS: titles, category, color, gear (default 2), parentId (default null)
-      addTiles(lines, activeCategory, activeColor, 2, null); 
+      // CHANGED: We now spawn "Monolith" Gear 3 tasks by default so you can chop them twice!
+      addTiles(lines, activeCategory, activeColor, 3, null); 
       setText('');
       setIsOpen(false); 
     }

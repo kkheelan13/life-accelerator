@@ -78,23 +78,31 @@ export const useStore = create<AppState>()(
         )
       })),
 
-      // 4. CHOP TILE: Hides the parent, spawns Gear 1 children in its exact place
+      // 4. CHOP TILE: Decrements Gear, inherits Sidecar status, and micro-slots into the timeline
+      // 4. CHOP TILE: Decrements Gear, inherits Sidecar status, and micro-slots into the timeline
       chopTile: (parentId, childTitles) => set((state) => {
         const parent = state.tiles.find(t => t.id === parentId);
-        if (!parent) return state;
+        if (!parent || parent.gear <= 1) return state;
 
-        // Mark parent as chopped (so it vanishes from the belt)
         const updatedTiles = state.tiles.map(t => 
           t.id === parentId ? { ...t, isChopped: true } : t
         );
 
-        // Spawn children as Gear 1, linking them to the parent
+        const childGear = (parent.gear - 1) as Gear;
+
+        // THE FIX: Exponentially smaller decimals prevent collisions!
+        // Gear 2 children get spaced by .001. Gear 1 children get spaced by .000001.
+        const spacing = childGear === 2 ? 0.001 : 0.000001;
+
         const children: Tile[] = childTitles.map((title, index) => ({
           id: `child-${Date.now()}-${index}`,
           title, category: parent.category, color: parent.color, 
-          gear: 1, parentId: parent.id, 
-          isCompleted: false, isSidetracked: false, isChopped: false,
-          createdAt: parent.createdAt + index, // Inherit parent's queue position!
+          gear: childGear, parentId: parent.id, 
+          isCompleted: false, isChopped: false,
+          isSidetracked: parent.isSidetracked, 
+          
+          // Micro-slotting ensures children stay physically "inside" their parent's spot
+          createdAt: parent.createdAt + ((index + 1) * spacing), 
         }));
 
         return { tiles: [...updatedTiles, ...children] };
