@@ -6,12 +6,13 @@ import { WorldMap } from './World';
 import { FocusIsland } from './FocusIsland';
 
 // Updated: Now accepts all tasks in the category to populate a dropdown
+// Updated BrainDumpInput with a Toggle Button
 const BrainDumpInput = ({ categoryTasks }: { categoryTasks: any[] }) => {
+  const [isOpen, setIsOpen] = useState(false); // Toggle state
   const [text, setText] = useState('');
   const [selectedTaskId, setSelectedTaskId] = useState(categoryTasks[0]?.id);
   const addTiles = useStore((state) => state.addTiles);
 
-  // Auto-select the first lane if the category changes
   useEffect(() => {
     if (categoryTasks.length > 0) setSelectedTaskId(categoryTasks[0].id);
   }, [categoryTasks]);
@@ -23,38 +24,66 @@ const BrainDumpInput = ({ categoryTasks }: { categoryTasks: any[] }) => {
     if (lines.length > 0 && selectedTaskId) {
       addTiles(selectedTaskId, lines);
       setText('');
+      setIsOpen(false); // Auto-close after deploying
     }
   };
 
   const activeColor = categoryTasks.find(t => t.id === selectedTaskId)?.color || '#fff';
 
+  // If closed, just show a floating "+" button
+  if (!isOpen) {
+    return (
+      <button 
+        onClick={() => setIsOpen(true)}
+        style={{
+          position: 'absolute', bottom: '30px', left: '50%', transform: 'translateX(-50%)',
+          background: 'rgba(20,20,20,0.8)', color: 'white', border: `1px solid ${activeColor}`,
+          padding: '12px 24px', borderRadius: '30px', fontWeight: 'bold', cursor: 'pointer',
+          pointerEvents: 'auto', zIndex: 100, backdropFilter: 'blur(5px)',
+          boxShadow: `0 0 10px ${activeColor}40`
+        }}
+      >
+        + ADD TILES
+      </button>
+    );
+  }
+
+  // If open, show the full terminal
   return (
-    
     <div style={{
       position: 'absolute', bottom: '30px', left: '50%', transform: 'translateX(-50%)',
       width: '90%', maxWidth: '600px', pointerEvents: 'auto', zIndex: 100,
-      background: 'rgba(10, 10, 10, 0.85)', padding: '15px', borderRadius: '12px',
-      border: `1px solid ${activeColor}`, backdropFilter: 'blur(10px)'
+      background: 'rgba(10, 10, 10, 0.95)', padding: '15px', borderRadius: '12px',
+      border: `1px solid ${activeColor}`, backdropFilter: 'blur(10px)',
+      boxShadow: `0 10px 30px rgba(0,0,0,0.5)`
     }}>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        
-        {/* Lane Selector */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ color: activeColor, fontSize: '0.8rem', fontWeight: 'bold' }}>
             BRAIN DUMP TERMINAL
           </div>
-          <select 
-            value={selectedTaskId} 
-            onChange={(e) => setSelectedTaskId(Number(e.target.value))}
-            style={{ 
-              background: '#222', color: 'white', border: 'none', padding: '4px 8px', 
-              borderRadius: '4px', outline: 'none', fontFamily: 'monospace'
-            }}
-          >
-            {categoryTasks.map(task => (
-              <option key={task.id} value={task.id}>{task.title}</option>
-            ))}
-          </select>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <select 
+              value={selectedTaskId} 
+              onChange={(e) => setSelectedTaskId(Number(e.target.value))}
+              style={{ 
+                background: '#222', color: 'white', border: 'none', padding: '4px 8px', 
+                borderRadius: '4px', outline: 'none', fontFamily: 'monospace'
+              }}
+            >
+              {categoryTasks.map(task => (
+                <option key={task.id} value={task.id}>{task.title}</option>
+              ))}
+            </select>
+            {/* Close Button */}
+            <button 
+              type="button" 
+              onClick={() => setIsOpen(false)}
+              style={{ background: 'transparent', color: '#888', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         <textarea 
@@ -70,10 +99,11 @@ const BrainDumpInput = ({ categoryTasks }: { categoryTasks: any[] }) => {
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleSubmit(e);
           }}
+          autoFocus // Automatically highlights the text box so you can start typing
         />
         <button type="submit" style={{
           background: activeColor, color: '#000', border: 'none', 
-          padding: '8px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer'
+          padding: '10px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer'
         }}>
           DEPLOY TO BELT
         </button>
