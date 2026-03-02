@@ -2,102 +2,102 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
 export type Category = 'Work' | 'Health' | 'Fitness' | 'Study' | 'Hobbies' | 'Admin';
+export type Gear = 1 | 2 | 3;
 
-interface Tile {
+export interface Tile {
   id: string;
   title: string;
-  isCompleted: boolean;
-}
-
-interface Task {
-  id: number;
-  title: string;
-  color: string;
   category: Category;
-  tiles: Tile[]; 
+  color: string;
+  gear: Gear;             // 1 (Micro), 2 (Standard), 3 (Monolith)
+  parentId: string | null; // Null if it's a top-level task
+  isCompleted: boolean;   // True = on the Trophy Floor
+  isSidetracked: boolean; // True = parked in the Sidecar
+  isChopped: boolean;     // True = broken down (hidden from active belt)
+  createdAt: number;      // Keeps the conveyor belt strictly ordered
 }
 
 interface AppState {
-  tasks: Task[];
+  tiles: Tile[];
   xp: number;
   view: 'world' | 'focus';
   activeCategory: Category | null;
-  completeTile: (taskId: number, tileId: string) => void;
-  addTiles: (taskId: number, newTitles: string[]) => void; // NEW: The Brain Dump
+  
+  // The Pure Focus Actions
+  addTiles: (titles: string[], category: Category, color: string, gear: Gear, parentId?: string | null) => void;
+  completeTile: (id: string) => void;
+  toggleSidetrack: (id: string) => void;
+  chopTile: (parentId: string, childTitles: string[]) => void;
+  
+  // Navigation
   enterPillar: (category: Category) => void;
   exitPillar: () => void;
 }
 
+// Helper for default colors
+const categoryColors: Record<Category, string> = {
+  Work: '#00a1e0', Health: 'indigo', Fitness: 'gold', 
+  Study: '#4ecdc4', Hobbies: '#ff6b6b', Admin: 'orange'
+};
+
 export const useStore = create<AppState>()(
   persist(
     (set) => ({
-      // Replace JUST the tasks array inside your store.ts with this:
-      tasks: [
-        { 
-          id: 1, title: "LWC Project", category: 'Work', color: '#00a1e0',
-          tiles: [
-            { id: 'w1', title: 'Setup Repo', isCompleted: false },
-          ]
-        },
-        { 
-          id: 2, title: "Administrative", category: 'Admin', color: 'orange',
-          tiles: [
-            { id: 'a1', title: 'Email Filter', isCompleted: false },
-          ]
-        },
-        { 
-          id: 3, title: "Health Routine", category: 'Health', color: 'indigo',
-          tiles: [
-            { id: 'h1', title: 'Hydrate 1L', isCompleted: false },
-          ]
-        },
-        // NEW: Empty base projects for your other pillars!
-        { 
-          id: 4, title: "Current Book", category: 'Study', color: '#4ecdc4',
-          tiles: [] 
-        },
-        { 
-          id: 5, title: "Guitar Practice", category: 'Hobbies', color: '#ff6b6b',
-          tiles: [] 
-        },
-        { 
-          id: 6, title: "Workout Plan", category: 'Fitness', color: 'gold',
-          tiles: [] 
-        }
-      ],
+      // We start with a completely empty Master Queue
+      tiles: [],
       xp: 0,
       view: 'world',
       activeCategory: null,
       
-      completeTile: (taskId, tileId) => set((state) => {
-        const updatedTasks = state.tasks.map(task => {
-          if (task.id === taskId) {
-            return {
-              ...task,
-              tiles: task.tiles.map(tile => 
-                tile.id === tileId ? { ...tile, isCompleted: true } : tile
-              )
-            };
-          }
-          return task;
-        });
-        return { tasks: updatedTasks, xp: state.xp + 25 };
+      // 1. ADD TILES: Injects new tasks into the end of the Master Belt
+      addTiles: (titles, category, color, gear = 2, parentId = null) => set((state) => {
+        const newTiles: Tile[] = titles.map((title, index) => ({
+          id: `tile-${Date.now()}-${index}`,
+          title, category, color, gear, parentId,
+          isCompleted: false, isSidetracked: false, isChopped: false,
+          createdAt: Date.now() + index,
+        }));
+        return { tiles: [...state.tiles, ...newTiles] };
       }),
 
-      // NEW: Takes lines of text and turns them into 3D Tiles
-      addTiles: (taskId, newTitles) => set((state) => {
-        const newTileObjects = newTitles.map((title, index) => ({
-          id: `tile-${Date.now()}-${index}`, // Unique ID
-          title: title,
-          isCompleted: false
+      // 2. COMPLETE TILE: Drops it to the Trophy Floor and grants XP based on Gear
+      completeTile: (id) => set((state) => {
+        const updatedTiles = state.tiles.map(tile => 
+          tile.id === id ? { ...tile, isCompleted: true, isSidetracked: false } : tile
+        );
+        const completedTile = state.tiles.find(t => t.id === id);
+        const xpReward = completedTile ? (completedTile.gear * 25) : 0; // Gear 1 = 25XP, Gear 3 = 75XP
+        
+        return { tiles: updatedTiles, xp: state.xp + xpReward };
+      }),
+
+      // 3. SIDETRACK TILE: Moves it between the Master Belt and the Sidecar
+      toggleSidetrack: (id) => set((state) => ({
+        tiles: state.tiles.map(tile => 
+          tile.id === id ? { ...tile, isSidetracked: !tile.isSidetracked } : tile
+        )
+      })),
+
+      // 4. CHOP TILE: Hides the parent, spawns Gear 1 children in its exact place
+      chopTile: (parentId, childTitles) => set((state) => {
+        const parent = state.tiles.find(t => t.id === parentId);
+        if (!parent) return state;
+
+        // Mark parent as chopped (so it vanishes from the belt)
+        const updatedTiles = state.tiles.map(t => 
+          t.id === parentId ? { ...t, isChopped: true } : t
+        );
+
+        // Spawn children as Gear 1, linking them to the parent
+        const children: Tile[] = childTitles.map((title, index) => ({
+          id: `child-${Date.now()}-${index}`,
+          title, category: parent.category, color: parent.color, 
+          gear: 1, parentId: parent.id, 
+          isCompleted: false, isSidetracked: false, isChopped: false,
+          createdAt: parent.createdAt + index, // Inherit parent's queue position!
         }));
 
-        const updatedTasks = state.tasks.map(task => 
-          task.id === taskId 
-            ? { ...task, tiles: [...task.tiles, ...newTileObjects] } 
-            : task
-        );
-        return { tasks: updatedTasks };
+        return { tiles: [...updatedTiles, ...children] };
       }),
 
       enterPillar: (category) => set({ view: 'focus', activeCategory: category }),
