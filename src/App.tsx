@@ -73,21 +73,46 @@ const BrainDumpInput = ({ activeCategory }: { activeCategory: Category }) => {
 };
 
 const UI = () => {
-  const { xp, view, exitPillar, activeCategory } = useStore();
+  const { xp, view, exitPillar, activeCategory, zenMode, toggleZenMode } = useStore();
 
   return (
     <>
       <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', padding: '30px', pointerEvents: 'none', zIndex: 50, display: 'flex', justifyContent: 'space-between', boxSizing: 'border-box' }}>
+        
+        {/* LEFT SIDE: Header, Version, and XP */}
         <div style={{ color: 'white', fontFamily: '"Geist", monospace' }}>
           <h1 style={{ margin: 0, letterSpacing: '-1px' }}>
             {view === 'world' ? 'ORBITAL COMMAND' : activeCategory?.toUpperCase()}
           </h1>
-          <div style={{ color: '#00a1e0', fontWeight: 'bold' }}>XP: {xp}</div>
+          {/* THE NEW VERSION TAG */}
+          <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '2px', letterSpacing: '1px' }}>
+            v0.2.3 : THE CONTROL PATCH
+          </div>
+          <div style={{ color: '#00a1e0', fontWeight: 'bold', marginTop: '8px' }}>
+            XP: {xp}
+          </div>
         </div>
+        
+        {/* RIGHT SIDE: Zen Toggle & Back Button */}
         {view === 'focus' && (
-          <button onClick={exitPillar} style={{ pointerEvents: 'auto', padding: '12px 24px', background: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', height: 'fit-content' }}>
-            BACK TO MAP
-          </button>
+          <div style={{ display: 'flex', gap: '15px', pointerEvents: 'auto' }}>
+            <button 
+              onClick={toggleZenMode} 
+              title="Toggle Zen Mode"
+              style={{ 
+                width: '44px', height: '44px', display: 'flex', justifyContent: 'center', alignItems: 'center',
+                fontSize: '1.2rem', background: zenMode ? '#00e6ff' : 'transparent',
+                border: `1px solid ${zenMode ? '#00e6ff' : 'rgba(255,255,255,0.2)'}`, 
+                borderRadius: '8px', cursor: 'pointer', backdropFilter: 'blur(5px)', 
+                transition: 'all 0.2s ease', boxShadow: zenMode ? '0 0 10px rgba(0, 230, 255, 0.4)' : 'none'
+              }}
+            >
+              👁️
+            </button>
+            <button onClick={exitPillar} style={{ padding: '12px 24px', background: 'white', color: 'black', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', height: 'fit-content' }}>
+              BACK TO MAP
+            </button>
+          </div>
         )}
       </div>
       {view === 'focus' && activeCategory && <BrainDumpInput activeCategory={activeCategory} />}

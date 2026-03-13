@@ -22,13 +22,18 @@ interface AppState {
   xp: number;
   view: 'world' | 'focus';
   activeCategory: Category | null;
+  zenMode: boolean;
+  
   
   // The Pure Focus Actions
+  toggleZenMode: () => void;
   addTiles: (titles: string[], category: Category, color: string, gear: Gear, parentId?: string | null) => void;
   completeTile: (id: string) => void;
   toggleSidetrack: (id: string) => void;
   chopTile: (parentId: string, childTitles: string[]) => void;
-  
+  deleteTile: (id: string) => void;
+  editTile: (id: string, newTitle: string) => void;
+
   // Navigation
   enterPillar: (category: Category) => void;
   exitPillar: () => void;
@@ -48,6 +53,8 @@ export const useStore = create<AppState>()(
       xp: 0,
       view: 'world',
       activeCategory: null,
+      zenMode: false,
+      toggleZenMode: () => set((state) => ({ zenMode: !state.zenMode })),
       
       // 1. ADD TILES: Injects new tasks into the end of the Master Belt
       addTiles: (titles, category, color, gear = 2, parentId = null) => set((state) => {
@@ -72,11 +79,33 @@ export const useStore = create<AppState>()(
       }),
 
       // 3. SIDETRACK TILE: Moves it between the Master Belt and the Sidecar
-      toggleSidetrack: (id) => set((state) => ({
-        tiles: state.tiles.map(tile => 
-          tile.id === id ? { ...tile, isSidetracked: !tile.isSidetracked } : tile
-        )
-      })),
+      // 3. SIDETRACK TILE: Moves the ENTIRE family tree between belts
+      toggleSidetrack: (id) => set((state) => {
+        const targetTile = state.tiles.find(t => t.id === id);
+        if (!targetTile) return state;
+
+        // Are we parking it, or bringing it back to the main belt?
+        const newSidetrackState = !targetTile.isSidetracked;
+
+        // Recursive helper to find the absolute Gear 3 Monolith of a family
+        const getRootId = (tileId: string): string => {
+          const tile = state.tiles.find(t => t.id === tileId);
+          if (!tile || !tile.parentId) return tileId;
+          return getRootId(tile.parentId);
+        };
+
+        const targetRootId = getRootId(id);
+
+        // Map over ALL tiles. If they share the same Root Ancestor, they move together!
+        const updatedTiles = state.tiles.map(tile => {
+          if (getRootId(tile.id) === targetRootId) {
+            return { ...tile, isSidetracked: newSidetrackState };
+          }
+          return tile;
+        });
+
+        return { tiles: updatedTiles };
+      }),
 
       // 4. CHOP TILE: Decrements Gear, inherits Sidecar status, and micro-slots into the timeline
       // 4. CHOP TILE: Decrements Gear, inherits Sidecar status, and micro-slots into the timeline
@@ -106,6 +135,25 @@ export const useStore = create<AppState>()(
         }));
 
         return { tiles: [...updatedTiles, ...children] };
+      }),
+
+      // 5. EDIT TILE: Renames a tile in place
+      editTile: (id, newTitle) => set((state) => ({
+        tiles: state.tiles.map(t => t.id === id ? { ...t, title: newTitle } : t)
+      })),
+
+      // 6. DELETE TILE: Vaporizes the tile and its entire family tree (No XP awarded)
+      deleteTile: (id) => set((state) => {
+        // Recursive hunter to find all descendants
+        const getDescendants = (parentId: string): string[] => {
+          const children = state.tiles.filter(t => t.parentId === parentId).map(t => t.id);
+          return [...children, ...children.flatMap(getDescendants)];
+        };
+        
+        // Build a hit-list of the target and every child beneath it
+        const hitList = new Set([id, ...getDescendants(id)]);
+        
+        return { tiles: state.tiles.filter(t => !hitList.has(t.id)) };
       }),
 
       enterPillar: (category) => set({ view: 'focus', activeCategory: category }),
