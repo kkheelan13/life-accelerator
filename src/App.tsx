@@ -1,30 +1,37 @@
-import React, { Suspense, useState } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Stars, Environment } from '@react-three/drei';
 import { useStore } from './store';
-import type { Category } from './store';
 import { WorldMap } from './World'; 
 import { FocusIsland } from './FocusIsland';
+import { supabase } from './supabase';
 
-// Helper for category colors
-const categoryColors: Record<Category, string> = {
+// Helper for category colors (swapped Category type to string)
+const categoryColors: Record<string, string> = {
+  WORK: '#00e6ff', PERSONAL: '#4ade80', PROJECTS: '#ff0055', 
   Work: '#00a1e0', Health: 'indigo', Fitness: 'gold', 
   Study: '#4ecdc4', Hobbies: '#ff6b6b', Admin: 'orange'
 };
 
-const BrainDumpInput = ({ activeCategory }: { activeCategory: Category }) => {
+const BrainDumpInput = ({ activeCategory }: { activeCategory: string }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [text, setText] = useState('');
-  const addTiles = useStore((state) => state.addTiles);
-  const activeColor = categoryColors[activeCategory];
+  
+  // 1. Pull the new singular addTile function
+  const addTile = useStore((state) => state.addTile); 
+  
+  // Fallback to a default color if category isn't in the dictionary
+  const activeColor = categoryColors[activeCategory] || '#00e6ff'; 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
     
     if (lines.length > 0) {
-      // CHANGED: We now spawn "Monolith" Gear 3 tasks by default so you can chop them twice!
-      addTiles(lines, activeCategory, activeColor, 3, null); 
+      // 2. Loop through each line and send it to the cloud individually
+      lines.forEach(line => {
+        addTile(line, 3, activeColor); 
+      });
       setText('');
       setIsOpen(false); 
     }
@@ -55,7 +62,7 @@ const BrainDumpInput = ({ activeCategory }: { activeCategory: Category }) => {
     }}>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ color: activeColor, fontWeight: 'bold' }}>MASTER BELT INPUT</div>
+          <div style={{ color: activeColor, fontWeight: 'bold', fontFamily: '"Geist", monospace' }}>MASTER BELT INPUT</div>
           <button type="button" onClick={() => setIsOpen(false)} style={{ background: '#ff4444', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>CLOSE</button>
         </div>
         <textarea 
@@ -64,7 +71,7 @@ const BrainDumpInput = ({ activeCategory }: { activeCategory: Category }) => {
           style={{ width: '100%', background: 'transparent', border: 'none', color: 'white', fontFamily: 'monospace', fontSize: '1rem', resize: 'none', outline: 'none' }}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleSubmit(e); }} autoFocus 
         />
-        <button type="submit" style={{ background: activeColor, color: '#000', border: 'none', padding: '10px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>
+        <button type="submit" style={{ background: activeColor, color: '#000', border: 'none', padding: '10px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontFamily: '"Geist", monospace' }}>
           DEPLOY TO BELT
         </button>
       </form>
@@ -84,9 +91,8 @@ const UI = () => {
           <h1 style={{ margin: 0, letterSpacing: '-1px' }}>
             {view === 'world' ? 'ORBITAL COMMAND' : activeCategory?.toUpperCase()}
           </h1>
-          {/* THE NEW VERSION TAG */}
           <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '2px', letterSpacing: '1px' }}>
-            v0.2.3 : THE CONTROL PATCH
+            v0.4.0
           </div>
           <div style={{ color: '#00a1e0', fontWeight: 'bold', marginTop: '8px' }}>
             XP: {xp}
@@ -109,7 +115,7 @@ const UI = () => {
             >
               👁️
             </button>
-            <button onClick={exitPillar} style={{ padding: '12px 24px', background: 'white', color: 'black', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', height: 'fit-content' }}>
+            <button onClick={exitPillar} style={{ padding: '12px 24px', background: 'white', color: 'black', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', height: 'fit-content', fontFamily: '"Geist", monospace' }}>
               BACK TO MAP
             </button>
           </div>
@@ -121,7 +127,27 @@ const UI = () => {
 };
 
 export default function App() {
-  const view = useStore((state) => state.view);
+  const { view, fetchTiles, receiveRealtimeTile } = useStore();
+  
+  // THE CLOUD IGNITION & REALTIME RADAR
+  useEffect(() => {
+    fetchTiles();
+
+    const subscription = supabase
+      .channel('public:tiles')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tiles' }, (payload) => {
+        console.log('Incoming Monolith Detected!', payload.new);
+        
+        // 3. Throw the payload to the specific catcher function to guarantee a 3D re-render
+        receiveRealtimeTile(payload.new as any);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, [fetchTiles, receiveRealtimeTile]);
+
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#050505', position: 'relative' }}>
       <Canvas style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }} camera={{ position: [0, 4, 12], fov: 45 }}>

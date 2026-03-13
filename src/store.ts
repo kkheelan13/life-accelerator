@@ -1,126 +1,146 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
+import { supabase } from './supabase';
 
-export type Category = 'Work' | 'Health' | 'Fitness' | 'Study' | 'Hobbies' | 'Admin';
 export type Gear = 1 | 2 | 3;
 
 export interface Tile {
   id: string;
   title: string;
-  category: Category;
+  category: string;
   color: string;
-  gear: Gear;             // 1 (Micro), 2 (Standard), 3 (Monolith)
-  parentId: string | null; // Null if it's a top-level task
-  isCompleted: boolean;   // True = on the Trophy Floor
-  isSidetracked: boolean; // True = parked in the Sidecar
-  isChopped: boolean;     // True = broken down (hidden from active belt)
-  createdAt: number;      // Keeps the conveyor belt strictly ordered
+  gear: Gear;
+  parentId?: string;
+  isCompleted: boolean;
+  isChopped: boolean;
+  isSidetracked: boolean;
+  createdAt: number;
 }
 
 interface AppState {
   tiles: Tile[];
   xp: number;
   view: 'world' | 'focus';
-  activeCategory: Category | null;
+  activeCategory: string | null;
   zenMode: boolean;
   
+  // The Cloud Functions
+  fetchTiles: () => Promise<void>;
+  receiveRealtimeTile: (newTile: Tile) => void;
   
-  // The Pure Focus Actions
+  // UI Navigation
+  setCategory: (category: string) => void;
+  exitPillar: () => void;
   toggleZenMode: () => void;
-  addTiles: (titles: string[], category: Category, color: string, gear: Gear, parentId?: string | null) => void;
+  
+  // The Data Mutations (The updated contract!)
+  addTile: (title: string, gear: Gear, color: string) => void;
   completeTile: (id: string) => void;
   toggleSidetrack: (id: string) => void;
   chopTile: (parentId: string, childTitles: string[]) => void;
-  deleteTile: (id: string) => void;
   editTile: (id: string, newTitle: string) => void;
-
-  // Navigation
-  enterPillar: (category: Category) => void;
-  exitPillar: () => void;
+  deleteTile: (id: string) => void;
 }
 
-// Helper for default colors
-const categoryColors: Record<Category, string> = {
-  Work: '#00a1e0', Health: 'indigo', Fitness: 'gold', 
-  Study: '#4ecdc4', Hobbies: '#ff6b6b', Admin: 'orange'
-};
-
+// Notice the (set, get) here! This fixes the 'get' error.
 export const useStore = create<AppState>()(
   persist(
-    (set) => ({
-      // We start with a completely empty Master Queue
+    (set, get) => ({
       tiles: [],
       xp: 0,
       view: 'world',
       activeCategory: null,
       zenMode: false,
+
+      setCategory: (category) => set({ view: 'focus', activeCategory: category }),
+      exitPillar: () => set({ view: 'world', activeCategory: null }),
       toggleZenMode: () => set((state) => ({ zenMode: !state.zenMode })),
-      
-      // 1. ADD TILES: Injects new tasks into the end of the Master Belt
-      addTiles: (titles, category, color, gear = 2, parentId = null) => set((state) => {
-        const newTiles: Tile[] = titles.map((title, index) => ({
-          id: `tile-${Date.now()}-${index}`,
-          title, category, color, gear, parentId,
-          isCompleted: false, isSidetracked: false, isChopped: false,
-          createdAt: Date.now() + index,
-        }));
-        return { tiles: [...state.tiles, ...newTiles] };
+
+      // --- CLOUD FETCHING ---
+      fetchTiles: async () => {
+        const { data, error } = await supabase.from('tiles').select('*');
+        if (!error && data) {
+          set({ tiles: data as Tile[] });
+        } else if (error) {
+          console.error("Supabase fetch error:", error);
+        }
+      },
+
+      receiveRealtimeTile: (newTile) => set((state) => {
+        if (state.tiles.some(t => t.id === newTile.id)) return state;
+        return { tiles: [...state.tiles, newTile] };
       }),
 
-      // 2. COMPLETE TILE: Drops it to the Trophy Floor and grants XP based on Gear
-      completeTile: (id) => set((state) => {
-        const updatedTiles = state.tiles.map(tile => 
-          tile.id === id ? { ...tile, isCompleted: true, isSidetracked: false } : tile
-        );
-        const completedTile = state.tiles.find(t => t.id === id);
-        const xpReward = completedTile ? (completedTile.gear * 25) : 0; // Gear 1 = 25XP, Gear 3 = 75XP
-        
-        return { tiles: updatedTiles, xp: state.xp + xpReward };
-      }),
+      // --- TILE MUTATIONS ---
+      addTile: async (title, gear, color) => {
+        const state = get();
+        if (!state.activeCategory) return;
 
-      // 3. SIDETRACK TILE: Moves it between the Master Belt and the Sidecar
-      // 3. SIDETRACK TILE: Moves the ENTIRE family tree between belts
-      toggleSidetrack: (id) => set((state) => {
-        const targetTile = state.tiles.find(t => t.id === id);
-        if (!targetTile) return state;
-
-        // Are we parking it, or bringing it back to the main belt?
-        const newSidetrackState = !targetTile.isSidetracked;
-
-        // Recursive helper to find the absolute Gear 3 Monolith of a family
-        const getRootId = (tileId: string): string => {
-          const tile = state.tiles.find(t => t.id === tileId);
-          if (!tile || !tile.parentId) return tileId;
-          return getRootId(tile.parentId);
+        const newTile: Tile = {
+          id: `tile-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+          title, category: state.activeCategory, color, gear,
+          isCompleted: false, isChopped: false, isSidetracked: false,
+          createdAt: Date.now()
         };
 
+        // Optimistic UI update
+        set({ tiles: [...state.tiles, newTile] });
+
+        // Cloud sync with console logs
+        console.log("🚀 Attempting to save to Supabase:", newTile);
+        const { data, error } = await supabase.from('tiles').insert([newTile]).select();
+        
+        if (error) {
+          console.error("❌ SUPABASE INSERT ERROR:", error.message, error.details);
+        } else {
+          console.log("✅ Successfully saved to Supabase:", data);
+        }
+      },
+
+      completeTile: async (id) => {
+        const state = get();
+        const tile = state.tiles.find(t => t.id === id);
+        if (!tile || tile.isCompleted) return;
+
+        set({ 
+          tiles: state.tiles.map(t => t.id === id ? { ...t, isCompleted: true } : t),
+          xp: state.xp + (tile.gear * 10) 
+        });
+        await supabase.from('tiles').update({ isCompleted: true }).eq('id', id);
+      },
+
+      toggleSidetrack: async (id) => {
+        const state = get();
+        const targetTile = state.tiles.find(t => t.id === id);
+        if (!targetTile) return;
+
+        const newSidetrackState = !targetTile.isSidetracked;
+        const getRootId = (tileId: string): string => {
+          const t = state.tiles.find(t => t.id === tileId);
+          if (!t || !t.parentId) return tileId;
+          return getRootId(t.parentId);
+        };
         const targetRootId = getRootId(id);
 
-        // Map over ALL tiles. If they share the same Root Ancestor, they move together!
-        const updatedTiles = state.tiles.map(tile => {
-          if (getRootId(tile.id) === targetRootId) {
-            return { ...tile, isSidetracked: newSidetrackState };
+        const familyIds: string[] = [];
+        const updatedTiles = state.tiles.map(t => {
+          if (getRootId(t.id) === targetRootId) {
+            familyIds.push(t.id);
+            return { ...t, isSidetracked: newSidetrackState };
           }
-          return tile;
+          return t;
         });
 
-        return { tiles: updatedTiles };
-      }),
+        set({ tiles: updatedTiles });
+        await supabase.from('tiles').update({ isSidetracked: newSidetrackState }).in('id', familyIds);
+      },
 
-      // 4. CHOP TILE: Decrements Gear, inherits Sidecar status, and micro-slots into the timeline
-      // 4. CHOP TILE: Decrements Gear, inherits Sidecar status, and micro-slots into the timeline
-      chopTile: (parentId, childTitles) => set((state) => {
+      chopTile: async (parentId, childTitles) => {
+        const state = get();
         const parent = state.tiles.find(t => t.id === parentId);
-        if (!parent || parent.gear <= 1) return state;
-
-        const updatedTiles = state.tiles.map(t => 
-          t.id === parentId ? { ...t, isChopped: true } : t
-        );
+        if (!parent || parent.gear <= 1) return;
 
         const childGear = (parent.gear - 1) as Gear;
-
-        // THE FIX: Exponentially smaller decimals prevent collisions!
-        // Gear 2 children get spaced by .001. Gear 1 children get spaced by .000001.
         const spacing = childGear === 2 ? 0.001 : 0.000001;
 
         const children: Tile[] = childTitles.map((title, index) => ({
@@ -129,39 +149,46 @@ export const useStore = create<AppState>()(
           gear: childGear, parentId: parent.id, 
           isCompleted: false, isChopped: false,
           isSidetracked: parent.isSidetracked, 
-          
-          // Micro-slotting ensures children stay physically "inside" their parent's spot
           createdAt: parent.createdAt + ((index + 1) * spacing), 
         }));
 
-        return { tiles: [...updatedTiles, ...children] };
-      }),
+        const updatedTiles = state.tiles.map(t => 
+          t.id === parentId ? { ...t, isChopped: true } : t
+        );
 
-      // 5. EDIT TILE: Renames a tile in place
-      editTile: (id, newTitle) => set((state) => ({
-        tiles: state.tiles.map(t => t.id === id ? { ...t, title: newTitle } : t)
-      })),
+        set({ tiles: [...updatedTiles, ...children] });
+        await supabase.from('tiles').update({ isChopped: true }).eq('id', parentId);
+        await supabase.from('tiles').insert(children);
+      },
 
-      // 6. DELETE TILE: Vaporizes the tile and its entire family tree (No XP awarded)
-      deleteTile: (id) => set((state) => {
-        // Recursive hunter to find all descendants
+      editTile: async (id, newTitle) => {
+        set((state) => ({
+          tiles: state.tiles.map(t => t.id === id ? { ...t, title: newTitle } : t)
+        }));
+        await supabase.from('tiles').update({ title: newTitle }).eq('id', id);
+      },
+
+      deleteTile: async (id) => {
+        const state = get();
         const getDescendants = (parentId: string): string[] => {
           const children = state.tiles.filter(t => t.parentId === parentId).map(t => t.id);
           return [...children, ...children.flatMap(getDescendants)];
         };
         
-        // Build a hit-list of the target and every child beneath it
-        const hitList = new Set([id, ...getDescendants(id)]);
+        const hitList = Array.from(new Set([id, ...getDescendants(id)]));
         
-        return { tiles: state.tiles.filter(t => !hitList.has(t.id)) };
-      }),
-
-      enterPillar: (category) => set({ view: 'focus', activeCategory: category }),
-      exitPillar: () => set({ view: 'world', activeCategory: null }),
+        set({ tiles: state.tiles.filter(t => !hitList.includes(t.id)) });
+        await supabase.from('tiles').delete().in('id', hitList);
+      },
     }),
     {
-      name: 'life-accelerator-storage',
-      storage: createJSONStorage(() => localStorage),
+      name: 'orbital-command-storage',
+      partialize: (state) => ({ 
+        xp: state.xp, 
+        view: state.view, 
+        activeCategory: state.activeCategory, 
+        zenMode: state.zenMode 
+      }),
     }
   )
 );

@@ -3,11 +3,11 @@ import { useFrame } from '@react-three/fiber';
 import { Text } from '@react-three/drei';
 import * as THREE from 'three';
 import { useStore } from './store';
-import type { Category } from './store';
+// Removed the strict Category import to match the new cloud store
 import { WorkIsland } from './components/WorkIsland';
 
-// 1. The Spatial Layout
-const ISLANDS: { id: Category; color: string; shape: string; x: number; z: number }[] = [
+// 1. The Spatial Layout (Swapped id type to standard string)
+const ISLANDS: { id: string; color: string; shape: string; x: number; z: number }[] = [
   // The Core 5: Arranged in a tight 4-unit radius circle around the center
   { id: 'Work', color: '#00a1e0', shape: 'box', x: 0, z: -4 },
   { id: 'Health', color: 'indigo', shape: 'sphere', x: 3.8, z: -1.2 },
@@ -22,7 +22,9 @@ const ISLANDS: { id: Category; color: string; shape: string; x: number; z: numbe
 const Island = ({ config }: { config: typeof ISLANDS[0] }) => {
   const meshRef = useRef<THREE.Group>(null);
   const [hovered, setHover] = useState(false);
-  const { xp, enterPillar } = useStore();
+  
+  // UPDATED: Pulled setCategory instead of enterPillar
+  const { xp, setCategory } = useStore();
 
   useFrame((state) => {
     if (meshRef.current) {
@@ -37,10 +39,21 @@ const Island = ({ config }: { config: typeof ISLANDS[0] }) => {
       position={[config.x, 0, config.z]} 
       onClick={(e) => {
         e.stopPropagation();
-        enterPillar(config.id);
+        // UPDATED: Use the new cloud store routing function
+        setCategory(config.id);
+        document.body.style.cursor = 'default';
       }}
-      onPointerOver={() => setHover(true)}
-      onPointerOut={() => setHover(false)}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        setHover(true);
+        // ADDED: Mouse pointer feedback
+        document.body.style.cursor = 'pointer';
+      }}
+      onPointerOut={(e) => {
+        e.stopPropagation();
+        setHover(false);
+        document.body.style.cursor = 'default';
+      }}
       scale={hovered ? 1.1 : 1}
     >
       {/* If it's Work, render the custom growing tower */}
