@@ -11,7 +11,7 @@ const ISLANDS: { id: string; color: string; shape: string; x: number; z: number 
   // The Core 5: Arranged in a tight 4-unit radius circle around the center
   { id: 'Work', color: '#00a1e0', shape: 'box', x: 0, z: -4 },
   { id: 'Health', color: 'indigo', shape: 'sphere', x: 3.8, z: -1.2 },
-  { id: 'Fitness', color: 'gold', shape: 'capsule', x: 2.3, z: 3.2 },
+  { id: 'Running', color: 'gold', shape: 'capsule', x: 2.3, z: 3.2 },
   { id: 'Study', color: '#4ecdc4', shape: 'cone', x: -2.3, z: 3.2 },
   { id: 'Hobbies', color: '#ff6b6b', shape: 'torus', x: -3.8, z: -1.2 },
   
