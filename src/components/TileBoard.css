@@ -1,0 +1,203 @@
+.board {
+  width: 100%;
+  max-width: 980px;
+  margin: 0 auto;
+  font-family: "Geist", monospace;
+  color: #fff;
+}
+
+.board__empty {
+  color: #555;
+  text-align: center;
+  padding: 60px 20px;
+  font-family: "Geist", monospace;
+}
+
+.board__focusbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #ffd166;
+  font-weight: bold;
+  margin-bottom: 18px;
+  font-size: 0.9rem;
+}
+.board__focusbar button {
+  background: transparent;
+  border: 1px solid #ffd16655;
+  color: #ffd166;
+  border-radius: 6px;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.75rem;
+}
+
+/* The square-tile grid */
+.board__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+.board__grid--done {
+  opacity: 0.5;
+}
+
+.board__divider {
+  margin: 32px 0 14px;
+  color: #4ade80;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  border-top: 1px solid #1e1e1e;
+  padding-top: 16px;
+}
+
+/* --- Square tile --- */
+.tile {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  background: rgba(17, 17, 17, 0.92);
+  border: 1px solid #2a2a2a;
+  border-left: 3px solid var(--tile-color, #00e6ff);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;            /* the whole tile is the complete target */
+  user-select: none;
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  transition: transform 0.18s ease, opacity 0.25s ease, filter 0.25s ease,
+              box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.tile:hover {
+  border-color: #3d3d3d;
+  transform: translateY(-2px);
+}
+/* While typing in a tile, it's not a click target */
+.tile--editing { cursor: default; }
+.tile--editing:hover { transform: none; }
+
+/* Spotlighted: sharp, lifted, glowing in its category color */
+.tile--spotlit {
+  border-color: var(--tile-color, #00e6ff);
+  box-shadow: 0 0 22px -2px var(--tile-color, #00e6ff),
+              inset 0 0 0 1px var(--tile-color, #00e6ff);
+  transform: scale(1.03);
+  z-index: 2;
+}
+
+/* Dimmed: everything that isn't the focus for today */
+.tile--dimmed {
+  opacity: 0.32;
+  filter: blur(2px) grayscale(0.5);
+}
+.tile--dimmed:hover {
+  opacity: 0.6;
+  filter: blur(0.5px);
+}
+
+/* Completed */
+.tile--done {
+  border-left-color: #4ade80;
+  background: rgba(26, 71, 42, 0.4);
+}
+.tile--done .tile__title {
+  color: #6b7280;
+  text-decoration: line-through;
+}
+
+.tile__gear {
+  position: absolute;
+  top: 10px;
+  left: 14px;
+  font-size: 0.6rem;
+  color: var(--tile-color, #00e6ff);
+  opacity: 0.6;
+  letter-spacing: 0.5px;
+}
+
+/* Spotlight toggle: hidden until hover (or when active), keeps the face clean */
+.tile__star {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px;
+  opacity: 0;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.tile:hover .tile__star { opacity: 0.7; }
+.tile__star:hover { transform: scale(1.2); opacity: 1; }
+.tile--spotlit .tile__star { opacity: 1; }
+
+.tile__title {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  margin-top: 16px;
+  overflow-y: auto;
+  word-break: break-word;
+}
+
+.tile__route {
+  margin-top: 10px;
+  width: 100%;
+  background: #000;
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 5px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+/* Inline edit / chop forms */
+.tile__form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  flex: 1;
+}
+.tile__form input,
+.tile__form textarea {
+  background: #000;
+  color: #fff;
+  border: 1px solid var(--tile-color, #00e6ff);
+  border-radius: 6px;
+  padding: 8px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  resize: none;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+.tile__choplabel {
+  color: var(--tile-color, #00e6ff);
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+.tile__formrow {
+  display: flex;
+  gap: 6px;
+}
+.tile__formrow button {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid #333;
+  color: #fff;
+  border-radius: 6px;
+  padding: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8rem;
+}
