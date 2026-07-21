@@ -135,6 +135,21 @@
 .tile__star:hover { transform: scale(1.2); opacity: 1; }
 .tile--spotlit .tile__star { opacity: 1; }
 
+.tile__category {
+  position: absolute;
+  top: 26px;
+  left: 14px;
+  font-size: 0.55rem;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--tile-color, #00a1e0);
+  opacity: 0.85;
+}
+
+.tile--categorized .tile__title {
+  margin-top: 32px;
+}
+
 .tile__title {
   flex: 1;
   display: flex;

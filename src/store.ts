@@ -67,7 +67,7 @@ export const SPOTLIGHT_CAP = 3;
 interface AppState {
   tiles: Tile[];
   xp: number;
-  view: 'world' | 'focus' | 'admin'; // <-- NEW: 'admin' view added
+  view: 'world' | 'focus' | 'admin' | 'all'; // <-- 'all' = unified cross-category board
   activeCategory: string | null;
   zenMode: boolean;
   streaks: Record<string, Streak>; // <-- per-category streaks, keyed by category
@@ -83,6 +83,7 @@ interface AppState {
   setCategory: (category: string) => void;
   exitPillar: () => void;
   openAdmin: () => void;
+  openAll: () => void;
   toggleZenMode: () => void;
 
   addTile: (title: string, gear: Gear, color: string) => void;
@@ -114,6 +115,7 @@ export const useStore = create<AppState>()(
       setCategory: (category) => set({ view: 'focus', activeCategory: category }),
       exitPillar: () => set({ view: 'world', activeCategory: null }),
       openAdmin: () => set({ view: 'admin', activeCategory: null }),
+      openAll: () => set({ view: 'all', activeCategory: null }),
       toggleZenMode: () => set((state) => ({ zenMode: !state.zenMode })),
 
       fetchTiles: async () => {

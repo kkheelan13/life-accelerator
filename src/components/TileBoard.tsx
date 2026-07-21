@@ -31,6 +31,7 @@ interface SquareTileProps {
   isSpotlit: boolean;         // is *this* tile spotlighted?
   isEditing: boolean;
   isChopping: boolean;
+  showCategoryBadge?: boolean; // mixed-category boards (e.g. All Tasks) need a category label per tile
   onComplete: (id: string) => void;
   onToggleSpotlight: (id: string) => void;
   onEdit: (id: string, title: string) => void;
@@ -43,7 +44,7 @@ interface SquareTileProps {
 }
 
 const SquareTile = ({
-  tile, spotlightActive, isSpotlit, isEditing, isChopping,
+  tile, spotlightActive, isSpotlit, isEditing, isChopping, showCategoryBadge,
   onComplete, onToggleSpotlight, onEdit, onChop, onStartChop,
   onEndEdit, onEndChop, onHover, onRoute,
 }: SquareTileProps) => {
@@ -70,6 +71,7 @@ const SquareTile = ({
     isSpotlit ? 'tile--spotlit' : '',
     dimmed ? 'tile--dimmed' : '',
     (isEditing || isChopping) ? 'tile--editing' : '',
+    showCategoryBadge ? 'tile--categorized' : '',
   ].filter(Boolean).join(' ');
 
   // Single click = complete — but only if it wasn't actually a drag.
@@ -117,6 +119,10 @@ const SquareTile = ({
       onMouseLeave={() => onHover(null)}
     >
       <span className="tile__gear">G{tile.gear}</span>
+
+      {showCategoryBadge && !isEditing && !isChopping && (
+        <span className="tile__category">{tile.category}</span>
+      )}
 
       {/* Spotlight toggle — revealed on hover, never completes the tile */}
       <button
@@ -186,9 +192,10 @@ interface TileBoardProps {
   tiles: Tile[];                                   // already filtered by caller
   onRoute?: (id: string, section: string) => void; // inbox passes a router
   emptyMessage?: string;
+  showCategoryBadge?: boolean;                     // mixed-category boards (e.g. All Tasks)
 }
 
-export const TileBoard = ({ tiles, onRoute, emptyMessage }: TileBoardProps) => {
+export const TileBoard = ({ tiles, onRoute, emptyMessage, showCategoryBadge }: TileBoardProps) => {
   const {
     completeTile, deleteTile, editTile, chopTile,
     reorderTiles, toggleSpotlight, clearSpotlight, spotlightIds, spotlightDay,
@@ -276,6 +283,7 @@ export const TileBoard = ({ tiles, onRoute, emptyMessage }: TileBoardProps) => {
                 isSpotlit={liveSpotlight.includes(tile.id)}
                 isEditing={editingId === tile.id}
                 isChopping={choppingId === tile.id}
+                showCategoryBadge={showCategoryBadge}
                 onComplete={completeTile}
                 onToggleSpotlight={toggleSpotlight}
                 onEdit={editTile}
@@ -298,11 +306,12 @@ export const TileBoard = ({ tiles, onRoute, emptyMessage }: TileBoardProps) => {
             {done.map(tile => (
               <div
                 key={tile.id}
-                className="tile tile--done"
+                className={['tile', 'tile--done', showCategoryBadge ? 'tile--categorized' : ''].filter(Boolean).join(' ')}
                 onMouseEnter={() => { hoveredRef.current = tile.id; }}
                 onMouseLeave={() => { hoveredRef.current = null; }}
               >
                 <span className="tile__gear">G{tile.gear}</span>
+                {showCategoryBadge && <span className="tile__category">{tile.category}</span>}
                 <div className="tile__title">{tile.title}</div>
               </div>
             ))}

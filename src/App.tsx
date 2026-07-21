@@ -39,6 +39,28 @@ const BoardOverlay = () => {
     );
   }
 
+  if (view === 'all') {
+    // Everything active, across every category — so checking what's pending
+    // never requires opening each island one at a time. Icebox ('someday')
+    // items are deliberately excluded here to avoid recreating that clutter;
+    // they're still visible in their own category's Focus board.
+    const allActiveTiles = tiles.filter(t => t.section === 'active' && !t.isChopped);
+    return (
+      <div className="board-overlay">
+        <div className="board-overlay__inner">
+          <p className="board-overlay__hint">
+            Click to complete · right-click to chop · ⌘E edit · ⌘D delete · drag to prioritise · ☆ spotlight
+          </p>
+          <TileBoard
+            tiles={allActiveTiles}
+            showCategoryBadge
+            emptyMessage="Nothing active anywhere. Route some tasks from the Inbox."
+          />
+        </div>
+      </div>
+    );
+  }
+
   // Focus board for a single category — only its active-grid (deployed) tasks.
   const focusTiles = tiles.filter(
     t => t.category === activeCategory && t.section !== 'admin' && !t.isChopped,
@@ -58,11 +80,11 @@ const BoardOverlay = () => {
   );
 };
 
-const BrainDumpInput = ({ activeCategory }: { activeCategory: string }) => {
+const BrainDumpInput = ({ activeCategory }: { activeCategory: string | null }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [text, setText] = useState('');
-  const addTile = useStore((state) => state.addTile); 
-  const activeColor = categoryColors[activeCategory] || '#00e6ff'; 
+  const addTile = useStore((state) => state.addTile);
+  const activeColor = (activeCategory && categoryColors[activeCategory]) || '#00e6ff';
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,7 +119,7 @@ const BrainDumpInput = ({ activeCategory }: { activeCategory: string }) => {
 };
 
 const UI = () => {
-  const { xp, view, exitPillar, openAdmin, activeCategory, streaks } = useStore();
+  const { xp, view, exitPillar, openAdmin, openAll, activeCategory, streaks } = useStore();
 
   // Live (decay-aware) streak for the area currently in focus
   const live = view === 'focus' && activeCategory ? liveStreak(streaks[activeCategory]) : 0;
@@ -109,7 +131,7 @@ const UI = () => {
         {/* LEFT SIDE */}
         <div style={{ color: 'white', fontFamily: '"Geist", monospace', pointerEvents: 'auto' }}>
           <h1 style={{ margin: 0, letterSpacing: '-1px', cursor: 'pointer' }} onClick={exitPillar}>
-            {view === 'admin' ? 'SYSTEM TRIAGE' : view === 'world' ? 'ORBITAL COMMAND' : activeCategory?.toUpperCase()}
+            {view === 'admin' ? 'SYSTEM TRIAGE' : view === 'world' ? 'ORBITAL COMMAND' : view === 'all' ? 'ALL TASKS' : activeCategory?.toUpperCase()}
           </h1>
           <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '2px', letterSpacing: '1px' }}>v0.5.0 (2D Boards)</div>
           <div style={{ color: '#00a1e0', fontWeight: 'bold', marginTop: '8px' }}>XP: {xp}</div>
@@ -127,7 +149,12 @@ const UI = () => {
               📥 INBOX
             </button>
           )}
-          {view === 'focus' && (
+          {view !== 'all' && (
+            <button onClick={openAll} style={{ padding: '12px 24px', background: 'transparent', color: '#ffd166', border: '1px solid #ffd166', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontFamily: '"Geist", monospace' }}>
+              🗂️ ALL TASKS
+            </button>
+          )}
+          {(view === 'focus' || view === 'all') && (
             <button onClick={exitPillar} style={{ padding: '12px 24px', background: 'white', color: 'black', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontFamily: '"Geist", monospace' }}>MAP</button>
           )}
           {view === 'admin' && (
@@ -135,7 +162,9 @@ const UI = () => {
           )}
         </div>
       </div>
-      {view === 'focus' && activeCategory && <BrainDumpInput activeCategory={activeCategory} />}
+      {((view === 'focus' && activeCategory) || view === 'all') && (
+        <BrainDumpInput activeCategory={view === 'all' ? null : activeCategory} />
+      )}
     </>
   );
 };
